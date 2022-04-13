@@ -1,0 +1,4 @@
+# Ignore everything but me and the demo
+*
+!demo1.mp4
+!.gitignore

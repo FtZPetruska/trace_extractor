@@ -12,7 +12,11 @@ python3 -m trace_extractor --ffprobe-path /path/to/ffprobe
 
 ## Installation
 
-[WIP]
+`trace_extractor` can be installed via `pip`:
+
+```
+pip install trace-extractor
+```
 
 ## Usage
 

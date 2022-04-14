@@ -15,6 +15,7 @@
 """Entry point of the program. Parses arguments and checks input files."""
 
 import argparse
+import dataclasses
 import enum
 import os
 import threading
@@ -34,7 +35,15 @@ class ReturnValue(enum.IntEnum):
     TRANSFORM_ERROR = 0b1000
 
 
-def _parse_args(argv: list[str]) -> tuple[list[str], bool, str]:
+@dataclasses.dataclass
+class Arguments:
+    """Represents the program's arguments"""
+    input_files: list[str] = []
+    verbose_logging: bool = False
+    ffprobe_executable: str = ""
+
+
+def _parse_args(argv: list[str]) -> Arguments:
     parser = argparse.ArgumentParser(
         description="MPEG-4 video trace extractor for ns-3.")
     parser.add_argument(dest="input_files", metavar="input.mp4",
@@ -46,7 +55,9 @@ def _parse_args(argv: list[str]) -> tuple[list[str], bool, str]:
                         action="store", required=False,
                         default="", help="Path to the ffprobe binary")
     args = parser.parse_args(argv)
-    return (args.input_files, args.verbose_logging, args.ffprobe_path)
+    return Arguments(input_files=args.input_files,
+                     verbose_logging=args.verbose_logging,
+                     ffprobe_executable=args.ffprobe_path)
 
 
 class EntryPoint:
@@ -56,20 +67,18 @@ class EntryPoint:
 
     def __init__(self, argv: list[str]) -> None:
         self._return_value: int = ReturnValue.SUCCESS
-        input_files, verbose_logging, ffprobe_path = _parse_args(argv)
-        self._input_filenames: list[str] = input_files
-        self._verbose_logging: bool = verbose_logging
-        self._ffprobe_path: str = ffprobe_path
+        self._arguments = _parse_args(argv)
+        self._input_filenames = self._arguments.input_files
 
     def _process_args(self) -> bool:
         """Disables logging if requested and checks for ffprobe availability.
 
         Returns False if ffprobe is not available.
         """
-        if self._verbose_logging:
+        if self._arguments.verbose_logging:
             enable_info_logging()
 
-        return is_ffprobe_available(self._ffprobe_path)
+        return is_ffprobe_available(self._arguments.ffprobe_executable)
 
     def _parse_input_directory(self) -> None:
         """Checks the input directory files."""

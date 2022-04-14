@@ -19,8 +19,8 @@ import enum
 import os
 from typing import Optional
 
-from . import data_extract
-from . import data_transform
+from . import data_extract, data_transform
+from .input_file_sanitizing import InputFilesSanitiser
 from .logger import disable_logging, log
 
 
@@ -61,56 +61,6 @@ def _get_filenames_from_input_dir() -> list[str]:
     return [os.path.join(input_dir, file) for file in os.listdir(input_dir)]
 
 
-def _dedupe_filenames(filenames: list[str]) -> list[str]:
-    """Removes files that appear twice and with the same name."""
-    deduped_filenames: list[str] = []
-
-    for candidate_file in filenames:
-        accepted = True
-        candidate_base = os.path.basename(candidate_file)
-
-        for chosen_file in deduped_filenames:
-
-            if os.path.samefile(candidate_file, chosen_file) and accepted:
-                accepted = False
-                log.warning(
-                    "Files %s and %s are the same, "
-                    "only the first will be processed.",
-                    chosen_file, candidate_file)
-
-            if os.path.basename(chosen_file) == candidate_base and accepted:
-                accepted = False
-                log.warning(
-                    "Files %s and %s have the same name, "
-                    "only the first will be processed.",
-                    chosen_file, candidate_file)
-
-        if accepted:
-            deduped_filenames.append(candidate_file)
-    return deduped_filenames
-
-
-def _filter_filenames(filenames: list[str]) -> list[str]:
-    """Checks for the correct file extension and for existence."""
-    filtered_filenames: list[str] = []
-    for file in filenames:
-        accepted = True
-
-        if not file.lower().endswith(".mp4") and accepted:
-            accepted = False
-            log.warning(
-                "File %s does not ends with .mp4 and has been removed.", file)
-
-        if not os.path.exists(file) and accepted:
-            accepted = False
-            log.warning("File %s does not exist and has been removed.", file)
-
-        if accepted:
-            filtered_filenames.append(file)
-
-    return filtered_filenames
-
-
 def entry_point() -> int:
     """Program's entry point"""
     ret_val: int = ReturnValue.SUCCESS
@@ -126,14 +76,13 @@ def entry_point() -> int:
         log.error("No files were given, use --help for help.")
         return ReturnValue.NO_VALID_FILE
 
-    filtered_filenames = _filter_filenames(raw_filenames)
-    deduped_filenames = _dedupe_filenames(filtered_filenames)
+    sanitized_filenames = InputFilesSanitiser(raw_filenames).run()
 
-    if not deduped_filenames:
+    if not sanitized_filenames:
         log.error("No valid files are left.")
         return ReturnValue.NO_VALID_FILE
 
-    for filename in deduped_filenames:
+    for filename in sanitized_filenames:
         json_data = data_extract.get_data_from_file(filename)
         if not json_data:
             log.error("FFProbe produced no output for file %s, "

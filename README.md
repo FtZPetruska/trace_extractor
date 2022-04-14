@@ -26,10 +26,22 @@ Running the command without arguments will scan the `input` folder in the curren
 python3 -m trace_extractor
 ```
 
-Input files can also be manually specified as positional arguments, note that the `input` folder will be scanned regardless.
+Input files can also be manually specified as positional arguments, note that the `input` folder will still be scanned.
 
 ```
 python3 -m trace_extractor file1.mp4 file2.mp4 ...
+```
+
+You can specify a custom input directory:
+
+```
+python3 -m trace_extractor -i path/to/input/directory
+```
+
+You can turn off scanning of input directories altogether by specifying `--disable-input-dir`:
+
+```
+python3 -m trace_extractor --disable-input-dir file1.mp4
 ```
 
 ## Example

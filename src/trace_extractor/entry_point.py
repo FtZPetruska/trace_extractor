@@ -35,17 +35,24 @@ class ReturnValue(enum.IntEnum):
     TRANSFORM_ERROR = 0b1000
 
 
+_DEFAULT_INPUT_DIR = "input"
+
+
 @dataclasses.dataclass
 class Arguments:
     """Represents the program's arguments"""
-    input_files: list[str] = []
+    input_files: list[str] = dataclasses.field(default_factory=lambda: [])
     verbose_logging: bool = False
     ffprobe_executable: str = ""
+    disable_input_dir: bool = False
+    input_dir: str = _DEFAULT_INPUT_DIR
 
 
 def _parse_args(argv: list[str]) -> Arguments:
     parser = argparse.ArgumentParser(
+        prog="python -m trace_extractor",
         description="MPEG-4 video trace extractor for ns-3.")
+
     parser.add_argument(dest="input_files", metavar="input.mp4",
                         nargs='*', help="The input file(s)")
     parser.add_argument("-v", "--verbose", dest="verbose_logging",
@@ -54,10 +61,22 @@ def _parse_args(argv: list[str]) -> Arguments:
     parser.add_argument("--ffprobe-path", dest="ffprobe_path",
                         action="store", required=False,
                         default="", help="Path to the ffprobe binary")
+
+    input_dir_group = parser.add_mutually_exclusive_group(required=False)
+    input_dir_group.add_argument("--disable-input-dir", action="store_true",
+                                 dest="disable_input_dir", default=False,
+                                 help="Disable scanning of input directory")
+    input_dir_group.add_argument("-i", "--input-dir", dest="input_dir",
+                                 action="store", default=_DEFAULT_INPUT_DIR,
+                                 help="Set a directory to scan for files "
+                                 f"(default: '{_DEFAULT_INPUT_DIR}')")
+
     args = parser.parse_args(argv)
     return Arguments(input_files=args.input_files,
                      verbose_logging=args.verbose_logging,
-                     ffprobe_executable=args.ffprobe_path)
+                     ffprobe_executable=args.ffprobe_path,
+                     disable_input_dir=args.disable_input_dir,
+                     input_dir=args.input_dir)
 
 
 class EntryPoint:
@@ -82,14 +101,17 @@ class EntryPoint:
 
     def _parse_input_directory(self) -> None:
         """Checks the input directory files."""
-        input_dir = os.path.join(os.path.curdir, "input")
-        if not os.path.isdir(input_dir):
-            log.warning("The path %s does not exist.", input_dir)
+        if not os.path.isdir(self._arguments.input_dir):
+            log.warning("The path %s does not exist.",
+                        self._arguments.input_dir)
         else:
-            files = os.listdir(input_dir)
-            files.remove(".gitignore")
+            files = os.listdir(self._arguments.input_dir)
+            if ".gitignore" in files:
+                files.remove(".gitignore")
             self._input_filenames.extend([
-                os.path.join(input_dir, file) for file in files])
+                os.path.join(self._arguments.input_dir, file)
+                for file in files
+            ])
 
     def _worker_thread(self, filename: str) -> None:
         log.info("Starting work on '%s'.", filename)
@@ -128,7 +150,8 @@ class EntryPoint:
             log.error("ffprobe executable could not be found.")
             return ReturnValue.FFPROBE_NOT_FOUND
 
-        self._parse_input_directory()
+        if not self._arguments.disable_input_dir:
+            self._parse_input_directory()
 
         if not self._input_filenames:
             log.error("No files were given, use --help for help.")

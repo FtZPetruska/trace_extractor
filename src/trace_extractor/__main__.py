@@ -15,7 +15,7 @@
 """Calls the module entry point."""
 import sys
 
-from . import entry_point
+from .entry_point import EntryPoint
 
 if __name__ == '__main__':
-    sys.exit(entry_point.entry_point())
+    sys.exit(EntryPoint(sys.argv[1:]).run())

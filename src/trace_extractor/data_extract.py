@@ -18,9 +18,8 @@ using ffprobe.
 
 import json
 import os
-import subprocess
 import shutil
-from typing import Optional
+import subprocess
 
 
 class Ffprobe:
@@ -41,11 +40,11 @@ class Ffprobe:
 _FFPROBE = Ffprobe()
 
 
-def is_ffprobe_available(executable_path: Optional[str] = None) -> bool:
+def is_ffprobe_available(executable_path: str) -> bool:
     """Checks if the given ffprobe path is valid, otherwise check for it
     in PATH.
     """
-    if executable_path is not None and os.path.exists(executable_path):
+    if os.path.exists(executable_path):
         _FFPROBE.set_custom_path(executable_path)
     return shutil.which(_FFPROBE.get_ffprobe_path()) is not None
 

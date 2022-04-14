@@ -12,7 +12,7 @@
 #
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <https://www.gnu.org/licenses/>.
-"""Provides functions to extract frames data from a MPEG-4 video file
+"""Provides a class to extract frames data from a MPEG-4 video file
 using ffprobe.
 """
 
@@ -37,7 +37,44 @@ class Ffprobe:
         return self._ffprobe_path
 
 
-_FFPROBE = Ffprobe()
+class DataExtractor:
+    """Extract frame data using ffprobe"""
+    ffprobe_executable = Ffprobe()
+
+    def __init__(self, input_filename) -> None:
+        self._input_filename = input_filename
+
+    def _call_ffprobe(self) -> bytes:
+        ffprobe_args = [
+            self.ffprobe_executable.get_ffprobe_path(),
+            "-select_streams",
+            "v:0",
+            "-print_format",
+            "json=compact=1",
+            "-show_frames",
+            self._input_filename
+        ]
+        try:
+            proc = subprocess.run(ffprobe_args, check=True,
+                                  stdout=subprocess.PIPE,
+                                  stderr=subprocess.DEVNULL)
+        except subprocess.CalledProcessError:
+            result = b""
+        else:
+            result = proc.stdout
+        return result
+
+    def _try_load_json_data(self, ffprobe_stdout: bytes) -> dict:
+        try:
+            json_data = json.loads(ffprobe_stdout)
+        except json.JSONDecodeError:
+            json_data = {}
+        return json_data
+
+    def run(self) -> dict:
+        """Calls ffprobe and returns the json data."""
+        raw_data = self._call_ffprobe()
+        return self._try_load_json_data(raw_data)
 
 
 def is_ffprobe_available(executable_path: str) -> bool:
@@ -45,39 +82,6 @@ def is_ffprobe_available(executable_path: str) -> bool:
     in PATH.
     """
     if os.path.exists(executable_path):
-        _FFPROBE.set_custom_path(executable_path)
-    return shutil.which(_FFPROBE.get_ffprobe_path()) is not None
-
-
-def _call_ffprobe(file: str) -> bytes:
-    """Launches the ffprobe subprocess.
-
-    Returns the content of stdout if successful.
-    """
-    ffprobe_args = [
-        _FFPROBE.get_ffprobe_path(),
-        "-select_streams",
-        "v:0",
-        "-print_format",
-        "json=compact=1",
-        "-show_frames",
-        file
-    ]
-    try:
-        proc = subprocess.run(ffprobe_args, check=True, stdout=subprocess.PIPE,
-                              stderr=subprocess.DEVNULL)
-    except subprocess.CalledProcessError:
-        result = b""
-    else:
-        result = proc.stdout
-    return result
-
-
-def get_data_from_file(file: str) -> dict:
-    """Calls ffprobe with the given file and returns the raw JSON data."""
-    raw_data = _call_ffprobe(file)
-    try:
-        json_data = json.loads(raw_data)
-    except json.JSONDecodeError:
-        json_data = {}
-    return json_data
+        DataExtractor.ffprobe_executable.set_custom_path(executable_path)
+    return shutil.which(DataExtractor.ffprobe_executable.get_ffprobe_path())\
+        is not None

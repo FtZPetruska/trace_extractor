@@ -19,7 +19,8 @@ import enum
 import os
 import threading
 
-from . import data_extract, data_transform
+from . import data_transform
+from .data_extract import DataExtractor, is_ffprobe_available
 from .input_file_sanitizing import InputFilesSanitiser
 from .logger import disable_logging, log
 
@@ -51,13 +52,14 @@ def _parse_args(argv: list[str]) -> tuple[list[str], bool, str]:
 class EntryPoint:
     """Defines the program's entry point."""
 
+    _lock = threading.Lock()
+
     def __init__(self, argv: list[str]) -> None:
         self._return_value: int = ReturnValue.SUCCESS
         input_files, disable_log, ffprobe_path = _parse_args(argv)
         self._input_filenames: list[str] = input_files
         self._disable_logging: bool = disable_log
         self._ffprobe_path: str = ffprobe_path
-        self._lock = threading.Lock()
 
     def _process_args(self) -> bool:
         """Disables logging if requested and checks for ffprobe availability.
@@ -67,7 +69,7 @@ class EntryPoint:
         if self._disable_logging:
             disable_logging()
 
-        return data_extract.is_ffprobe_available(self._ffprobe_path)
+        return is_ffprobe_available(self._ffprobe_path)
 
     def _parse_input_directory(self) -> None:
         """Checks the input directory files."""
@@ -81,7 +83,7 @@ class EntryPoint:
                 os.path.join(input_dir, file) for file in files])
 
     def _worker_thread(self, filename: str) -> None:
-        json_data = data_extract.get_data_from_file(filename)
+        json_data = DataExtractor(filename).run()
         if not json_data:
             log.error("FFProbe produced no output for file %s, "
                       "please ensure this is a valid MPEG-4 file.",

@@ -22,7 +22,7 @@ import threading
 from .data_extract import DataExtractor, is_ffprobe_available
 from .data_transform import DataTransformer
 from .input_file_sanitizing import InputFilesSanitiser
-from .logger import disable_logging, log
+from .logger import enable_info_logging, log
 
 
 class ReturnValue(enum.IntEnum):
@@ -39,14 +39,14 @@ def _parse_args(argv: list[str]) -> tuple[list[str], bool, str]:
         description="MPEG-4 video trace extractor for ns-3.")
     parser.add_argument(dest="input_files", metavar="input.mp4",
                         nargs='*', help="The input file(s)")
-    parser.add_argument("--disable-logging", dest="disable_logging",
+    parser.add_argument("-v", "--verbose", dest="verbose_logging",
                         action="store_true", required=False,
-                        default=False, help="Disable logging")
+                        default=False, help="Enables verbose output")
     parser.add_argument("--ffprobe-path", dest="ffprobe_path",
                         action="store", required=False,
                         default="", help="Path to the ffprobe binary")
     args = parser.parse_args(argv)
-    return (args.input_files, args.disable_logging, args.ffprobe_path)
+    return (args.input_files, args.verbose_logging, args.ffprobe_path)
 
 
 class EntryPoint:
@@ -56,9 +56,9 @@ class EntryPoint:
 
     def __init__(self, argv: list[str]) -> None:
         self._return_value: int = ReturnValue.SUCCESS
-        input_files, disable_log, ffprobe_path = _parse_args(argv)
+        input_files, verbose_logging, ffprobe_path = _parse_args(argv)
         self._input_filenames: list[str] = input_files
-        self._disable_logging: bool = disable_log
+        self._verbose_logging: bool = verbose_logging
         self._ffprobe_path: str = ffprobe_path
 
     def _process_args(self) -> bool:
@@ -66,8 +66,8 @@ class EntryPoint:
 
         Returns False if ffprobe is not available.
         """
-        if self._disable_logging:
-            disable_logging()
+        if self._verbose_logging:
+            enable_info_logging()
 
         return is_ffprobe_available(self._ffprobe_path)
 
@@ -83,6 +83,7 @@ class EntryPoint:
                 os.path.join(input_dir, file) for file in files])
 
     def _worker_thread(self, filename: str) -> None:
+        log.info("Starting work on '%s'.", filename)
         json_data = DataExtractor(filename).run()
         if not json_data:
             log.error("FFProbe produced no output for file %s, "
@@ -97,6 +98,8 @@ class EntryPoint:
                       filename)
             with self._lock:
                 self._return_value |= ReturnValue.TRANSFORM_ERROR
+            return
+        log.info("Finished work on '%s'.", filename)
 
     def _spread_work(self, sanitized_filenames: list[str]) -> None:
         """Spreads the work between multiple threads."""

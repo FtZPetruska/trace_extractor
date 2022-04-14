@@ -12,17 +12,17 @@
 #
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <https://www.gnu.org/licenses/>.
-"""Provides a logger to all modules."""
+"""Provides a simple logger to all modules."""
 
 import logging
 
 
-def disable_logging() -> None:
+def enable_info_logging() -> None:
     """Disables logging."""
-    logging.disable(logging.CRITICAL)
+    log.setLevel(logging.INFO)
 
 
 logging.basicConfig(format='%(asctime)s %(levelname)s:%(message)s',
-                    level=logging.INFO)
+                    level=logging.WARNING)
 
 log = logging.getLogger()

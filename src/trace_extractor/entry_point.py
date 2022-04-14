@@ -19,8 +19,8 @@ import enum
 import os
 import threading
 
-from . import data_transform
 from .data_extract import DataExtractor, is_ffprobe_available
+from .data_transform import DataTransformer
 from .input_file_sanitizing import InputFilesSanitiser
 from .logger import disable_logging, log
 
@@ -92,8 +92,7 @@ class EntryPoint:
                 self._return_value |= ReturnValue.FFPROBE_ERROR
             return
 
-        if not data_transform.transform_data(json_data,
-                                             os.path.basename(filename)):
+        if not DataTransformer(json_data, os.path.basename(filename)).run():
             log.error("The data transformation failed for file %s",
                       filename)
             with self._lock:
